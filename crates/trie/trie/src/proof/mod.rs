@@ -27,44 +27,61 @@ pub use blinded::*;
 /// on the hash builder and follows the same algorithm as the state root calculator.
 /// See `StateRoot::root` for more info.
 #[derive(Debug)]
-pub struct Proof<T, H> {
+pub struct Proof<'a, T, H, TX> {
     /// The factory for traversing trie nodes.
     trie_cursor_factory: T,
     /// The factory for hashed cursors.
     hashed_cursor_factory: H,
     /// A set of prefix sets that have changes.
     prefix_sets: TriePrefixSetsMut,
+    /// The transaction to which the proof is tied.
+    pub tx: &'a TX,
     /// Flag indicating whether to include branch node masks in the proof.
     collect_branch_node_masks: bool,
 }
 
-impl<T, H> Proof<T, H> {
+impl<'a, T: Clone, H: Clone, TX> Clone for Proof<'a, T, H, TX> {
+    fn clone(&self) -> Self {
+        Self {
+            trie_cursor_factory: self.trie_cursor_factory.clone(),
+            hashed_cursor_factory: self.hashed_cursor_factory.clone(),
+            prefix_sets: self.prefix_sets.clone(),
+            tx: self.tx,
+            collect_branch_node_masks: self.collect_branch_node_masks,
+        }
+    }
+}
+
+impl<'a, T, H, TX> Proof<'a, T, H, TX> {
     /// Create a new [`Proof`] instance.
-    pub fn new(t: T, h: H) -> Self {
+    pub fn new(t: T, h: H, tx: &'a TX) -> Self {
         Self {
             trie_cursor_factory: t,
             hashed_cursor_factory: h,
             prefix_sets: TriePrefixSetsMut::default(),
+            tx,
             collect_branch_node_masks: false,
         }
     }
 
     /// Set the trie cursor factory.
-    pub fn with_trie_cursor_factory<TF>(self, trie_cursor_factory: TF) -> Proof<TF, H> {
+    pub fn with_trie_cursor_factory<TF>(self, trie_cursor_factory: TF) -> Proof<'a, TF, H, TX> {
         Proof {
             trie_cursor_factory,
             hashed_cursor_factory: self.hashed_cursor_factory,
             prefix_sets: self.prefix_sets,
+            tx: self.tx,
             collect_branch_node_masks: self.collect_branch_node_masks,
         }
     }
 
     /// Set the hashed cursor factory.
-    pub fn with_hashed_cursor_factory<HF>(self, hashed_cursor_factory: HF) -> Proof<T, HF> {
+    pub fn with_hashed_cursor_factory<HF>(self, hashed_cursor_factory: HF) -> Proof<'a, T, HF, TX> {
         Proof {
             trie_cursor_factory: self.trie_cursor_factory,
             hashed_cursor_factory,
             prefix_sets: self.prefix_sets,
+            tx: self.tx,
             collect_branch_node_masks: self.collect_branch_node_masks,
         }
     }
@@ -82,7 +99,7 @@ impl<T, H> Proof<T, H> {
     }
 }
 
-impl<T, H> Proof<T, H>
+impl<'a, T, H, TX> Proof<'a, T, H, TX>
 where
     T: TrieCursorFactory + Clone,
     H: HashedCursorFactory + Clone,
@@ -277,7 +294,7 @@ where
 
         // short circuit on empty storage
         if hashed_storage_cursor.is_storage_empty()? {
-            return Ok(StorageMultiProof::empty())
+            return Ok(StorageMultiProof::empty());
         }
 
         let target_nibbles = targets.into_iter().map(Nibbles::unpack).collect::<Vec<_>>();

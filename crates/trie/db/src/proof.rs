@@ -10,14 +10,15 @@ use reth_trie::{
     StorageMultiProof, TrieInput,
 };
 
-/// Extends [`Proof`] with operations specific for working with a database transaction.
-pub trait DatabaseProof<'a, TX> {
-    /// Create a new [Proof] from database transaction.
+/// Type alias for a Proof instance tied to a DB transaction lifetime.
+pub trait DbProofFromTx<'a, TX> {
     fn from_tx(tx: &'a TX) -> Self;
-
+}
+/// Extends [`Proof`] with operations specific for working with a database transaction.
+pub trait DatabaseProof {
     /// Generates the state proof for target account based on [`TrieInput`].
     fn overlay_account_proof(
-        tx: &'a TX,
+        &self,
         input: TrieInput,
         address: Address,
         slots: &[B256],
@@ -25,35 +26,39 @@ pub trait DatabaseProof<'a, TX> {
 
     /// Generates the state [`MultiProof`] for target hashed account and storage keys.
     fn overlay_multiproof(
-        tx: &'a TX,
+        &self,
         input: TrieInput,
         targets: MultiProofTargets,
     ) -> Result<MultiProof, StateProofError>;
 }
 
-impl<'a, TX: DbTx> DatabaseProof<'a, TX>
-    for Proof<DatabaseTrieCursorFactory<'a, TX>, DatabaseHashedCursorFactory<'a, TX>>
+impl<'a, TX: DbTx> DbProofFromTx<'a, TX>
+    for Proof<'a, DatabaseTrieCursorFactory<'a, TX>, DatabaseHashedCursorFactory<'a, TX>, TX>
 {
-    /// Create a new [Proof] instance from database transaction.
+    /// Creates a new proof provider tied to the transaction.
     fn from_tx(tx: &'a TX) -> Self {
-        Self::new(DatabaseTrieCursorFactory::new(tx), DatabaseHashedCursorFactory::new(tx))
+        Self::new(DatabaseTrieCursorFactory::new(tx), DatabaseHashedCursorFactory::new(tx), tx)
     }
+}
 
+impl<'a, TX: DbTx> DatabaseProof
+    for Proof<'a, DatabaseTrieCursorFactory<'a, TX>, DatabaseHashedCursorFactory<'a, TX>, TX>
+{
     fn overlay_account_proof(
-        tx: &'a TX,
+        &self,
         input: TrieInput,
         address: Address,
         slots: &[B256],
     ) -> Result<AccountProof, StateProofError> {
         let nodes_sorted = input.nodes.into_sorted();
         let state_sorted = input.state.into_sorted();
-        Self::from_tx(tx)
+        self.clone()
             .with_trie_cursor_factory(InMemoryTrieCursorFactory::new(
-                DatabaseTrieCursorFactory::new(tx),
+                DatabaseTrieCursorFactory::new(self.tx),
                 &nodes_sorted,
             ))
             .with_hashed_cursor_factory(HashedPostStateCursorFactory::new(
-                DatabaseHashedCursorFactory::new(tx),
+                DatabaseHashedCursorFactory::new(self.tx),
                 &state_sorted,
             ))
             .with_prefix_sets_mut(input.prefix_sets)
@@ -61,19 +66,19 @@ impl<'a, TX: DbTx> DatabaseProof<'a, TX>
     }
 
     fn overlay_multiproof(
-        tx: &'a TX,
+        &self,
         input: TrieInput,
         targets: MultiProofTargets,
     ) -> Result<MultiProof, StateProofError> {
         let nodes_sorted = input.nodes.into_sorted();
         let state_sorted = input.state.into_sorted();
-        Self::from_tx(tx)
+        self.clone()
             .with_trie_cursor_factory(InMemoryTrieCursorFactory::new(
-                DatabaseTrieCursorFactory::new(tx),
+                DatabaseTrieCursorFactory::new(self.tx),
                 &nodes_sorted,
             ))
             .with_hashed_cursor_factory(HashedPostStateCursorFactory::new(
-                DatabaseHashedCursorFactory::new(tx),
+                DatabaseHashedCursorFactory::new(self.tx),
                 &state_sorted,
             ))
             .with_prefix_sets_mut(input.prefix_sets)

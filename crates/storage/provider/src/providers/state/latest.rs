@@ -132,7 +132,7 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateProofProvider
         address: Address,
         slots: &[B256],
     ) -> ProviderResult<AccountProof> {
-        Proof::overlay_account_proof(self.tx(), input, address, slots).map_err(ProviderError::from)
+        Proof::from_txn(self.tx()).overlay_account_proof(input, address, slots).map_err(ProviderError::from)
     }
 
     fn multiproof(
@@ -140,7 +140,7 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateProofProvider
         input: TrieInput,
         targets: MultiProofTargets,
     ) -> ProviderResult<MultiProof> {
-        Proof::overlay_multiproof(self.tx(), input, targets).map_err(ProviderError::from)
+        Proof::from_txn(self.tx()).overlay_multiproof(input, targets).map_err(ProviderError::from)
     }
 
     fn witness(&self, input: TrieInput, target: HashedPostState) -> ProviderResult<Vec<Bytes>> {
@@ -172,7 +172,7 @@ impl<Provider: DBProvider + BlockHashReader + StateCommitmentProvider> StateProv
         let mut cursor = self.tx().cursor_dup_read::<tables::PlainStorageState>()?;
         if let Some(entry) = cursor.seek_by_key_subkey(account, storage_key)? {
             if entry.key == storage_key {
-                return Ok(Some(entry.value))
+                return Ok(Some(entry.value));
             }
         }
         Ok(None)

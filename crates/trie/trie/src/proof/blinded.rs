@@ -88,12 +88,15 @@ where
         let start = enabled!(target: "trie::proof::blinded", Level::TRACE).then(Instant::now);
 
         let targets = MultiProofTargets::from_iter([(pad_path_to_key(path), HashSet::default())]);
-        let mut proof =
-            Proof::new(self.trie_cursor_factory.clone(), self.hashed_cursor_factory.clone())
-                .with_prefix_sets_mut(self.prefix_sets.as_ref().clone())
-                .with_branch_node_masks(true)
-                .multiproof(targets)
-                .map_err(|error| SparseTrieErrorKind::Other(Box::new(error)))?;
+        let mut proof = Proof::new(
+            self.trie_cursor_factory.clone(),
+            self.hashed_cursor_factory.clone(),
+            self.tx,
+        )
+        .with_prefix_sets_mut(self.prefix_sets.as_ref().clone())
+        .with_branch_node_masks(true)
+        .multiproof(targets)
+        .map_err(|error| SparseTrieErrorKind::Other(Box::new(error)))?;
         let node = proof.account_subtree.into_inner().remove(path);
         let tree_mask = proof.branch_node_tree_masks.remove(path);
         let hash_mask = proof.branch_node_hash_masks.remove(path);
