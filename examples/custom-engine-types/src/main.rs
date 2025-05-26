@@ -23,20 +23,10 @@ use alloy_primitives::{Address, B256};
 use alloy_rpc_types::{
     engine::{
         ExecutionData, ExecutionPayloadEnvelopeV2, ExecutionPayloadEnvelopeV3,
-        ExecutionPayloadEnvelopeV4, ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes,
-        PayloadId,
+        ExecutionPayloadEnvelopeV4, ExecutionPayloadEnvelopeV5, ExecutionPayloadV1,
+        PayloadAttributes as EthPayloadAttributes, PayloadId,
     },
     Withdrawal,
-};
-use reth::{
-    builder::{
-        components::{BasicPayloadServiceBuilder, ComponentsBuilder, PayloadBuilderBuilder},
-        node::NodeTypes,
-        rpc::{EngineValidatorBuilder, RpcAddOns},
-        BuilderContext, FullNodeTypes, Node, NodeAdapter, NodeBuilder, NodeComponentsBuilder,
-    },
-    rpc::types::engine::ExecutionPayload,
-    tasks::TaskManager,
 };
 use reth_basic_payload_builder::{BuildArguments, BuildOutcome, PayloadBuilder, PayloadConfig};
 use reth_engine_local::payload::UnsupportedLocalAttributes;
@@ -46,8 +36,13 @@ use reth_ethereum::{
         api::{
             payload::{EngineApiMessageVersion, EngineObjectValidationError, PayloadOrAttributes},
             validate_version_specific_fields, AddOnsContext, EngineTypes, EngineValidator,
-            FullNodeComponents, InvalidPayloadAttributesError, NewPayloadError, PayloadAttributes,
-            PayloadBuilderAttributes, PayloadTypes, PayloadValidator,
+            FullNodeComponents, FullNodeTypes, InvalidPayloadAttributesError, NewPayloadError,
+            NodeTypes, PayloadAttributes, PayloadBuilderAttributes, PayloadTypes, PayloadValidator,
+        },
+        builder::{
+            components::{BasicPayloadServiceBuilder, ComponentsBuilder, PayloadBuilderBuilder},
+            rpc::{EngineValidatorBuilder, RpcAddOns},
+            BuilderContext, Node, NodeAdapter, NodeBuilder, NodeComponentsBuilder,
         },
         core::{args::RpcServerArgs, node_config::NodeConfig},
         node::{
@@ -59,6 +54,8 @@ use reth_ethereum::{
     pool::{PoolTransaction, TransactionPool},
     primitives::{RecoveredBlock, SealedBlock},
     provider::{EthStorage, StateProviderFactory},
+    rpc::types::engine::ExecutionPayload,
+    tasks::TaskManager,
     Block, EthPrimitives, TransactionSigned,
 };
 use reth_ethereum_payload_builder::{EthereumBuilderConfig, EthereumExecutionPayloadValidator};
@@ -176,6 +173,7 @@ impl EngineTypes for CustomEngineTypes {
     type ExecutionPayloadEnvelopeV2 = ExecutionPayloadEnvelopeV2;
     type ExecutionPayloadEnvelopeV3 = ExecutionPayloadEnvelopeV3;
     type ExecutionPayloadEnvelopeV4 = ExecutionPayloadEnvelopeV4;
+    type ExecutionPayloadEnvelopeV5 = ExecutionPayloadEnvelopeV5;
 }
 
 /// Custom engine validator
@@ -248,7 +246,7 @@ where
     fn validate_payload_attributes_against_header(
         &self,
         _attr: &<T as PayloadTypes>::PayloadAttributes,
-        _header: &<Self::Block as reth::api::Block>::Header,
+        _header: &<Self::Block as reth_ethereum::primitives::Block>::Header,
     ) -> Result<(), InvalidPayloadAttributesError> {
         // skip default timestamp validation
         Ok(())
@@ -323,9 +321,9 @@ where
         ComponentsBuilder::default()
             .node_types::<N>()
             .pool(EthereumPoolBuilder::default())
+            .executor(EthereumExecutorBuilder::default())
             .payload(BasicPayloadServiceBuilder::default())
             .network(EthereumNetworkBuilder::default())
-            .executor(EthereumExecutorBuilder::default())
             .consensus(EthereumConsensusBuilder::default())
     }
 
@@ -339,7 +337,7 @@ where
 #[non_exhaustive]
 pub struct CustomPayloadBuilderBuilder;
 
-impl<Node, Pool> PayloadBuilderBuilder<Node, Pool> for CustomPayloadBuilderBuilder
+impl<Node, Pool> PayloadBuilderBuilder<Node, Pool, EthEvmConfig> for CustomPayloadBuilderBuilder
 where
     Node: FullNodeTypes<
         Types: NodeTypes<
@@ -358,12 +356,13 @@ where
         self,
         ctx: &BuilderContext<Node>,
         pool: Pool,
+        evm_config: EthEvmConfig,
     ) -> eyre::Result<Self::PayloadBuilder> {
         let payload_builder = CustomPayloadBuilder {
             inner: reth_ethereum_payload_builder::EthereumPayloadBuilder::new(
                 ctx.provider().clone(),
                 pool,
-                EthEvmConfig::new(ctx.provider().chain_spec().clone()),
+                evm_config,
                 EthereumBuilderConfig::new(),
             ),
         };

@@ -1863,12 +1863,12 @@ impl<N: NetworkPrimitives> PeerMetadata<N> {
     }
 
     /// Returns a reference to the peer's request sender channel.
-    pub fn request_tx(&self) -> &PeerRequestSender<PeerRequest<N>> {
+    pub const fn request_tx(&self) -> &PeerRequestSender<PeerRequest<N>> {
         &self.request_tx
     }
 
     /// Return a
-    pub fn seen_transactions_mut(&mut self) -> &mut LruCache<TxHash> {
+    pub const fn seen_transactions_mut(&mut self) -> &mut LruCache<TxHash> {
         &mut self.seen_transactions
     }
 
@@ -1908,7 +1908,7 @@ enum TransactionsCommand<N: NetworkPrimitives = EthNetworkPrimitives> {
         peers: Vec<PeerId>,
         tx: oneshot::Sender<HashMap<PeerId, HashSet<TxHash>>>,
     },
-    /// Requests a clone of the sender sender channel to the peer.
+    /// Requests a clone of the sender channel to the peer.
     GetPeerSender {
         peer_id: PeerId,
         peer_request_sender: oneshot::Sender<Option<PeerRequestSender<PeerRequest<N>>>>,
@@ -1995,12 +1995,12 @@ mod tests {
         },
         NetworkConfigBuilder, NetworkManager,
     };
-    use alloy_consensus::{transaction::PooledTransaction, TxEip1559, TxLegacy};
+    use alloy_consensus::{TxEip1559, TxLegacy};
     use alloy_primitives::{hex, Signature, TxKind, U256};
     use alloy_rlp::Decodable;
     use futures::FutureExt;
     use reth_chainspec::MIN_TRANSACTION_GAS;
-    use reth_ethereum_primitives::{Transaction, TransactionSigned};
+    use reth_ethereum_primitives::{PooledTransactionVariant, Transaction, TransactionSigned};
     use reth_network_api::{NetworkInfo, PeerKind};
     use reth_network_p2p::{
         error::{RequestError, RequestResult},
@@ -2071,7 +2071,9 @@ mod tests {
             }
         }
         // random tx: <https://etherscan.io/getRawTx?tx=0x9448608d36e721ef403c53b00546068a6474d6cbab6816c3926de449898e7bce>
-        let input = hex!("02f871018302a90f808504890aef60826b6c94ddf4c5025d1a5742cf12f74eec246d4432c295e487e09c3bbcc12b2b80c080a0f21a4eacd0bf8fea9c5105c543be5a1d8c796516875710fafafdf16d16d8ee23a001280915021bb446d1973501a67f93d2b38894a514b976e7b46dc2fe54598d76");
+        let input = hex!(
+            "02f871018302a90f808504890aef60826b6c94ddf4c5025d1a5742cf12f74eec246d4432c295e487e09c3bbcc12b2b80c080a0f21a4eacd0bf8fea9c5105c543be5a1d8c796516875710fafafdf16d16d8ee23a001280915021bb446d1973501a67f93d2b38894a514b976e7b46dc2fe54598d76"
+        );
         let signed_tx = TransactionSigned::decode(&mut &input[..]).unwrap();
         transactions.on_network_tx_event(NetworkTransactionEvent::IncomingTransactions {
             peer_id: *handle1.peer_id(),
@@ -2142,7 +2144,9 @@ mod tests {
             }
         }
         // random tx: <https://etherscan.io/getRawTx?tx=0x9448608d36e721ef403c53b00546068a6474d6cbab6816c3926de449898e7bce>
-        let input = hex!("02f871018302a90f808504890aef60826b6c94ddf4c5025d1a5742cf12f74eec246d4432c295e487e09c3bbcc12b2b80c080a0f21a4eacd0bf8fea9c5105c543be5a1d8c796516875710fafafdf16d16d8ee23a001280915021bb446d1973501a67f93d2b38894a514b976e7b46dc2fe54598d76");
+        let input = hex!(
+            "02f871018302a90f808504890aef60826b6c94ddf4c5025d1a5742cf12f74eec246d4432c295e487e09c3bbcc12b2b80c080a0f21a4eacd0bf8fea9c5105c543be5a1d8c796516875710fafafdf16d16d8ee23a001280915021bb446d1973501a67f93d2b38894a514b976e7b46dc2fe54598d76"
+        );
         let signed_tx = TransactionSigned::decode(&mut &input[..]).unwrap();
         transactions.on_network_tx_event(NetworkTransactionEvent::IncomingTransactions {
             peer_id: *handle1.peer_id(),
@@ -2232,10 +2236,10 @@ mod tests {
         let PeerRequest::GetPooledTransactions { request, response } = req else { unreachable!() };
         assert_eq!(request, GetPooledTransactions::from(txs_hashes.clone()));
 
-        let message: Vec<PooledTransaction> = txs
+        let message: Vec<PooledTransactionVariant> = txs
             .into_iter()
             .map(|tx| {
-                PooledTransaction::try_from(tx)
+                PooledTransactionVariant::try_from(tx)
                     .expect("Failed to convert MockTransaction to PooledTransaction")
             })
             .collect();
@@ -2309,7 +2313,9 @@ mod tests {
             }
         }
         // random tx: <https://etherscan.io/getRawTx?tx=0x9448608d36e721ef403c53b00546068a6474d6cbab6816c3926de449898e7bce>
-        let input = hex!("02f871018302a90f808504890aef60826b6c94ddf4c5025d1a5742cf12f74eec246d4432c295e487e09c3bbcc12b2b80c080a0f21a4eacd0bf8fea9c5105c543be5a1d8c796516875710fafafdf16d16d8ee23a001280915021bb446d1973501a67f93d2b38894a514b976e7b46dc2fe54598d76");
+        let input = hex!(
+            "02f871018302a90f808504890aef60826b6c94ddf4c5025d1a5742cf12f74eec246d4432c295e487e09c3bbcc12b2b80c080a0f21a4eacd0bf8fea9c5105c543be5a1d8c796516875710fafafdf16d16d8ee23a001280915021bb446d1973501a67f93d2b38894a514b976e7b46dc2fe54598d76"
+        );
         let signed_tx = TransactionSigned::decode(&mut &input[..]).unwrap();
         transactions.on_network_tx_event(NetworkTransactionEvent::IncomingTransactions {
             peer_id: *handle1.peer_id(),
@@ -2393,7 +2399,8 @@ mod tests {
 
         let request = GetPooledTransactions(vec![*tx.get_hash()]);
 
-        let (send, receive) = oneshot::channel::<RequestResult<PooledTransactions>>();
+        let (send, receive) =
+            oneshot::channel::<RequestResult<PooledTransactions<PooledTransactionVariant>>>();
 
         transactions.on_network_tx_event(NetworkTransactionEvent::GetPooledTransactions {
             peer_id: *handle1.peer_id(),
@@ -2504,11 +2511,11 @@ mod tests {
             .expect("peer_1 session should receive request with buffered hashes");
         let PeerRequest::GetPooledTransactions { response, .. } = req else { unreachable!() };
 
-        let message: Vec<PooledTransaction> = txs
+        let message: Vec<PooledTransactionVariant> = txs
             .into_iter()
             .take(1)
             .map(|tx| {
-                PooledTransaction::try_from(tx)
+                PooledTransactionVariant::try_from(tx)
                     .expect("Failed to convert MockTransaction to PooledTransaction")
             })
             .collect();

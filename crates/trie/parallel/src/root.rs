@@ -16,7 +16,7 @@ use reth_trie::{
     trie_cursor::{InMemoryTrieCursorFactory, TrieCursorFactory},
     updates::TrieUpdates,
     walker::TrieWalker,
-    HashBuilder, Nibbles, StorageRoot, TrieInput, TrieType, TRIE_ACCOUNT_RLP_MAX_SIZE,
+    HashBuilder, Nibbles, StorageRoot, TrieInput, TRIE_ACCOUNT_RLP_MAX_SIZE,
 };
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
 use std::{collections::HashMap, sync::Arc};
@@ -145,15 +145,14 @@ where
             &hashed_state_sorted,
         );
 
-        let walker = TrieWalker::new(
+        let walker = TrieWalker::state_trie(
             trie_cursor_factory.account_trie_cursor().map_err(ProviderError::Database)?,
             prefix_sets.account_prefix_set,
         )
         .with_deletions_retained(retain_updates);
-        let mut account_node_iter = TrieNodeIter::new(
+        let mut account_node_iter = TrieNodeIter::state_trie(
             walker,
             hashed_cursor_factory.hashed_account_cursor().map_err(ProviderError::Database)?,
-            TrieType::State,
         );
 
         let mut hash_builder = HashBuilder::default().with_updates(retain_updates);
@@ -248,6 +247,12 @@ impl From<ParallelStateRootError> for ProviderError {
             }
             ParallelStateRootError::Other(other) => Self::Database(DatabaseError::Other(other)),
         }
+    }
+}
+
+impl From<alloy_rlp::Error> for ParallelStateRootError {
+    fn from(error: alloy_rlp::Error) -> Self {
+        Self::Provider(ProviderError::Rlp(error))
     }
 }
 

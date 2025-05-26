@@ -116,7 +116,6 @@ where
                             TransferKind::Create => OperationType::OpCreate,
                             TransferKind::Create2 => OperationType::OpCreate2,
                             TransferKind::SelfDestruct => OperationType::OpSelfDestruct,
-                            TransferKind::EofCreate => OperationType::OpEofCreate,
                         },
                     })
                     .collect::<Vec<_>>()
@@ -162,7 +161,7 @@ where
                         depth: trace.depth as u32,
                         from: trace.caller,
                         to: trace.address,
-                        value: trace.value,
+                        value: Some(trace.value),
                         input: trace.data,
                         output: trace.output,
                     })

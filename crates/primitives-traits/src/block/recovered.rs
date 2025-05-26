@@ -283,6 +283,15 @@ impl<B: Block> RecoveredBlock<B> {
         (self.block.into_block(), self.senders)
     }
 
+    /// Returns the `Recovered<&T>` transaction at the given index.
+    pub fn recovered_transaction(
+        &self,
+        idx: usize,
+    ) -> Option<Recovered<&<B::Body as BlockBody>::Transaction>> {
+        let sender = self.senders.get(idx).copied()?;
+        self.block.body().transactions().get(idx).map(|tx| Recovered::new_unchecked(tx, sender))
+    }
+
     /// Returns an iterator over all transactions and their sender.
     #[inline]
     pub fn transactions_with_sender(
@@ -460,7 +469,7 @@ where
 #[cfg(any(test, feature = "test-utils"))]
 impl<B: Block> RecoveredBlock<B> {
     /// Returns a mutable reference to the recovered senders.
-    pub fn senders_mut(&mut self) -> &mut Vec<Address> {
+    pub const fn senders_mut(&mut self) -> &mut Vec<Address> {
         &mut self.senders
     }
 
@@ -493,12 +502,12 @@ impl<B: crate::test_utils::TestBlock> RecoveredBlock<B> {
     }
 
     /// Returns a mutable reference to the header.
-    pub fn header_mut(&mut self) -> &mut B::Header {
+    pub const fn header_mut(&mut self) -> &mut B::Header {
         self.block.header_mut()
     }
 
     /// Returns a mutable reference to the header.
-    pub fn block_mut(&mut self) -> &mut B::Body {
+    pub const fn block_mut(&mut self) -> &mut B::Body {
         self.block.body_mut()
     }
 
