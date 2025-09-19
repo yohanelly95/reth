@@ -70,10 +70,6 @@ where
         self.inner.transact_system_call(caller, contract, data)
     }
 
-    fn db_mut(&mut self) -> &mut Self::DB {
-        self.inner.db_mut()
-    }
-
     fn finish(self) -> (Self::DB, EvmEnv<Self::Spec>) {
         self.inner.finish()
     }
@@ -82,25 +78,23 @@ where
         self.inner.set_inspector_enabled(enabled)
     }
 
-    fn precompiles(&self) -> &Self::Precompiles {
-        self.inner.precompiles()
+    fn components(&self) -> (&Self::DB, &Self::Inspector, &Self::Precompiles) {
+        self.inner.components()
     }
 
-    fn precompiles_mut(&mut self) -> &mut Self::Precompiles {
-        self.inner.precompiles_mut()
-    }
-
-    fn inspector(&self) -> &Self::Inspector {
-        self.inner.inspector()
-    }
-
-    fn inspector_mut(&mut self) -> &mut Self::Inspector {
-        self.inner.inspector_mut()
+    fn components_mut(&mut self) -> (&mut Self::DB, &mut Self::Inspector, &mut Self::Precompiles) {
+        self.inner.components_mut()
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct CustomEvmFactory(pub OpEvmFactory);
+
+impl CustomEvmFactory {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 impl EvmFactory for CustomEvmFactory {
     type Evm<DB: Database, I: Inspector<OpContext<DB>>> = CustomEvm<DB, I, Self::Precompiles>;

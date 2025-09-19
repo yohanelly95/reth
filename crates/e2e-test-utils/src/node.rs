@@ -18,7 +18,7 @@ use reth_node_core::primitives::SignedTransaction;
 use reth_payload_primitives::{BuiltPayload, PayloadBuilderAttributes};
 use reth_provider::{
     BlockReader, BlockReaderIdExt, CanonStateNotificationStream, CanonStateSubscriptions,
-    StageCheckpointReader,
+    HeaderProvider, StageCheckpointReader,
 };
 use reth_rpc_builder::auth::AuthServerHandle;
 use reth_rpc_eth_api::helpers::{EthApiSpec, EthTransactions, TraceExt};
@@ -27,7 +27,7 @@ use std::pin::Pin;
 use tokio_stream::StreamExt;
 use url::Url;
 
-/// An helper struct to handle node actions
+/// A helper struct to handle node actions
 #[expect(missing_debug_implementations)]
 pub struct NodeTestContext<Node, AddOns>
 where
@@ -161,8 +161,8 @@ where
             }
 
             if check {
-                if let Some(latest_block) = self.inner.provider.block_by_number(number)? {
-                    assert_eq!(latest_block.header().hash_slow(), expected_block_hash);
+                if let Some(latest_header) = self.inner.provider.header_by_number(number)? {
+                    assert_eq!(latest_header.hash_slow(), expected_block_hash);
                     break
                 }
                 assert!(
